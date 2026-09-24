@@ -1,0 +1,32 @@
+name: 1 - Teste e Validação
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Verificar se os ficheiros essenciais existem
+        run: |
+          echo "A verificar ficheiros do projeto..."
+          if [ ! -f index.html ]; then
+            echo "ERRO: O ficheiro index.html não foi encontrado!"
+            exit 1
+          fi
+          if [ ! -f Dockerfile ]; then
+            echo "ERRO: O ficheiro Dockerfile não foi encontrado!"
+            exit 1
+          fi
+          if [ ! -f docker-compose.yml ]; then
+            echo "ERRO: O ficheiro docker-compose.yml não foi encontrado!"
+            exit 1
+          fi
+          echo "Todos os ficheiros obrigatórios foram encontrados com sucesso!"

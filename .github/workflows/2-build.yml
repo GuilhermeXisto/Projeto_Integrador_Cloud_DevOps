@@ -1,0 +1,22 @@
+name: 2 - Build da Imagem Docker
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build_docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar o Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Testar a construção (Build) da Imagem Docker
+        run: |
+          echo "A iniciar o build da imagem Docker..."
+          docker build -t app-test:latest .
+          echo "Imagem Docker construída com sucesso no ambiente de integração contínua!"
