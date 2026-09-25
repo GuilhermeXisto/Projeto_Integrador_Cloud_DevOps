@@ -1,22 +1,49 @@
-name: 2 - Build da Imagem Docker
+name: 2 - Build GHCR e Deploy VPS
 
 on:
   push:
     branches: [ "main" ]
 
-jobs:
-  build_docker:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
+  packages: write
 
+jobs:
+  build_e_deploy:
+    runs-on: ubuntu-latest
     steps:
-      - name: Baixar o código do repositório
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
-      - name: Configurar o Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Testar a construção (Build) da Imagem Docker
+      - name: Construir e Publicar Imagem no GHCR
         run: |
-          echo "A iniciar o build da imagem Docker..."
-          docker build -t app-test:latest .
-          echo "Imagem Docker construída com sucesso no ambiente de integração contínua!"
+          IMAGE_TAG=ghcr.io/${{ github.repository_owner }}/projeto_integrador_cloud_devops:latest
+          docker build -t $IMAGE_TAG .
+          docker push $IMAGE_TAG
+
+      - name: Deploy na VPS via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # Garante Login no GHCR na VPS
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Se o projeto nao existir na VPS, realiza o clone inicial
+            if [ ! -d "projeto" ]; then
+              git clone https://github.com/${{ github.repository }}.git projeto
+            fi
+            
+            cd projeto
+            git pull origin main
+            docker compose pull
+            docker compose up -d --remove-orphans

@@ -1,9 +1,6 @@
-version: '3.8'
-
 services:
   web:
-    build: .
-    container_name: minha_aplicacao
+    image: ghcr.io/SEU_USUARIO_GITHUB/Projeto_Integrador_Cloud_DevOps:latest
     ports:
       - "80:80"
-    restart: always
+    restart: unless-stopped

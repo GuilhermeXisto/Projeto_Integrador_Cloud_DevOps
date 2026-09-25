@@ -1,32 +1,21 @@
-name: 1 - Teste e Validação
+name: 1 - Teste e Validacao CI
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
-  testes:
+  teste:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Baixar o código do repositório
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
-      - name: Verificar se os ficheiros essenciais existem
+      - name: Construir e testar container localmente
         run: |
-          echo "A verificar ficheiros do projeto..."
-          if [ ! -f index.html ]; then
-            echo "ERRO: O ficheiro index.html não foi encontrado!"
-            exit 1
-          fi
-          if [ ! -f Dockerfile ]; then
-            echo "ERRO: O ficheiro Dockerfile não foi encontrado!"
-            exit 1
-          fi
-          if [ ! -f docker-compose.yml ]; then
-            echo "ERRO: O ficheiro docker-compose.yml não foi encontrado!"
-            exit 1
-          fi
-          echo "Todos os ficheiros obrigatórios foram encontrados com sucesso!"
+          docker build -t app-teste .
+          docker run -d --name app-teste -p 8080:80 app-teste
+          sleep 2
+          docker exec app-teste nginx -t
+          curl -f http://127.0.0.1:8080 || exit 1
+          docker stop app-teste
