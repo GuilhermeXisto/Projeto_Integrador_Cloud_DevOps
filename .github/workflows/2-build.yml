@@ -24,26 +24,26 @@ jobs:
 
       - name: Construir e Publicar Imagem no GHCR
         run: |
-          IMAGE_TAG=ghcr.io/${{ github.repository_owner }}/projeto_integrador_cloud_devops:latest
-          docker build -t $IMAGE_TAG .
-          docker push $IMAGE_TAG
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$REPO_LOWER:latest .
+          docker push ghcr.io/$REPO_LOWER:latest
 
-      - name: Deploy na VPS via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
+#      - name: Deploy na VPS via SSH
+#        uses: appleboy/ssh-action@v1.0.0
+#        with:
+#          host: ${{ secrets.SSH_HOST }}
+#          username: ${{ secrets.SSH_USER }}
+#          key: ${{ secrets.SSH_KEY }}
+#          script: |
             # Garante Login no GHCR na VPS
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+#            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Se o projeto nao existir na VPS, realiza o clone inicial
-            if [ ! -d "projeto" ]; then
-              git clone https://github.com/${{ github.repository }}.git projeto
-            fi
+#            if [ ! -d "projeto" ]; then
+#              git clone https://github.com/${{ github.repository }}.git projeto
+#            fi
             
-            cd projeto
-            git pull origin main
-            docker compose pull
-            docker compose up -d --remove-orphans
+#            cd projeto
+#            git pull origin main
+#            docker compose pull
+#            docker compose up -d --remove-orphans
