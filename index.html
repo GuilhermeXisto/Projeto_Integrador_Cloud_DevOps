@@ -3,19 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trabalho de DevOps</title>
+    <title>Projeto Integrador - Cloud & DevOps</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f7fb;
+            color: #1f2937;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .badge {
+            display: inline-block;
+            background: #e8f0ff;
+            color: #2563eb;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 14px;
+            color: #111827;
+        }
+
+        .descricao {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            margin-bottom: 18px;
+            color: #1f2937;
+        }
+
+        .integrantes {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 12px;
+        }
+
+        .integrantes li {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-weight: 500;
+        }
+
+        footer {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #9ca3af;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Trabalho de DevOps e computação em nuvem.</h1>
-    <p>Este é um exemplo simples de página HTML para o trabalho de DevOps.</p>
-    <h2>Integrantes do nosso grupo</h2>
-    <ul>
-        <li>Guilherme Henrique Xisto da silva</li>
-        <li>Lael</li>
-        <li>vino</li>
-        <li>Arthur leite</li>
-        <li>João Vitor davy</li>
-        <li>João Pedro</li>
-    </ul>
+    <main class="container">
+        <span class="badge">Projeto Integrador</span>
+
+        <h1>Cloud Computing & DevOps</h1>
+
+        <p class="descricao">
+            Aplicação web desenvolvida para o Projeto Integrador da disciplina
+            de Cloud Computing e DevOps, demonstrando conceitos de
+            containerização, computação em nuvem, CI/CD, DNS, HTTPS,
+            monitoramento e implantação em produção.
+        </p>
+
+        <h2>Integrantes do grupo</h2>
+
+        <ul class="integrantes">
+            <li>Guilherme Henrique Xisto da Silva</li>
+            <li>Lael Cândido Batista Veiga</li>
+            <li>Vinicius de Oliveira Mateus</li>
+            <li>Arthur Leite</li>
+            <li>João Vitor Davy</li>
+            <li>João Pedro Moraes Silva</li>
+        </ul>
+
+        <footer>
+            Projeto Integrador — Cloud Computing & DevOps
+        </footer>
+    </main>
 </body>
 </html>
