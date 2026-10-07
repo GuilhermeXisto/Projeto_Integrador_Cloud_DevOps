@@ -1,6 +1,7 @@
 services:
   web:
-    image: ghcr.io/SEU_USUARIO_GITHUB/Projeto_Integrador_Cloud_DevOps:latest
+    image: ghcr.io/guilhermexisto/projeto_integrador_cloud_devops:latest
     ports:
       - "80:80"
     restart: unless-stopped
+  
