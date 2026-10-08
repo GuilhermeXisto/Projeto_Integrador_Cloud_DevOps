@@ -2,6 +2,6 @@ services:
   web:
     image: ghcr.io/guilhermexisto/projeto_integrador_cloud_devops:latest
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
     restart: unless-stopped
   
