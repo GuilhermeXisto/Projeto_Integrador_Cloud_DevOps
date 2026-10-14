@@ -1,0 +1,14 @@
+name: 3 - Monitoramento
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  verificar-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar disponibilidade do site
+        run: |
+          curl -fsS --max-time 15 -o /dev/null https://amigosdoxisto.tuzihd.com.br
