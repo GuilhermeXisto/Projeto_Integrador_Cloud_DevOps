@@ -1,21 +1,32 @@
-name: 1 - Teste e Validacao CI
+# 1. CI: valida configuração do Docker Compose
+name: 1 - CI (Testes)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  teste:
+  test:
+    name: Testes e Validação
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar codigo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Construir e testar container localmente
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+
+      - name: Rodar testes (pytest)
+        run: pytest -v
+
+      - name: Validar docker-compose.yml
         run: |
-          docker build -t app-teste .
-          docker run -d --name app-teste -p 8080:80 app-teste
-          sleep 2
-          docker exec app-teste nginx -t
-          curl -f http://127.0.0.1:8080 || exit 1
-          docker stop app-teste
+          cp .env.example .env
+          docker compose config --quiet

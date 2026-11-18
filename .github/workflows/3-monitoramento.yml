@@ -1,14 +1,54 @@
-name: 3 - Monitoramento
+# 3. CD & Monitoramento: Faz deploy em produção, verifica saúde (HTTPS) e monitora periodicamente
+name: 3 - Deploy e Monitoramento
 
 on:
+  workflow_run:
+    workflows: ["2 - Build e Push"]
+    types: [completed]
+    branches: [main]
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: '*/30 * * * *'  # Health check automático a cada 30 minutos
   workflow_dispatch:
 
 jobs:
-  verificar-site:
+  deploy:
+    name: Deploy em produção
+    if: (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch') && github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /opt/projeto-cloud-devops
+            git pull --ff-only
+            # Registra no .env qual versão está em produção (facilita rollback)
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ github.sha }}/" .env
+            docker compose pull app
+            docker compose up -d
+            docker image prune -f
+
+      - name: Verificar produção (HTTPS)
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS https://${{ secrets.DOMAIN }}/health | grep -q "${{ github.sha }}"; then
+              echo "✅ Nova versão no ar"; exit 0
+            fi
+            sleep 3
+          done
+          echo "❌ Produção não respondeu com o commit esperado"; exit 1
+
+  health-check:
+    name: Monitoramento contínuo (Health Check)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Verificar disponibilidade do site
+      - name: Verificar disponibilidade em produção
         run: |
-          curl -fsS --max-time 15 -o /dev/null https://amigosdoxisto.tuzihd.com.br
+          curl -fsS https://${{ secrets.DOMAIN }}/health || (echo "❌ Aplicação fora do ar!"; exit 1)
+          echo "✅ Aplicação online e saudável"
