@@ -41,6 +41,8 @@ chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$APP_DIR"
 if [ ! -f "$APP_DIR/.env" ]; then
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
+  # O deploy (via SSH, como $DEPLOY_USER) precisa ler e editar o .env
+  chown "$DEPLOY_USER":"$DEPLOY_USER" "$APP_DIR/.env"
   echo "!! Edite $APP_DIR/.env (IMAGE) antes de subir os containers."
 fi
 
