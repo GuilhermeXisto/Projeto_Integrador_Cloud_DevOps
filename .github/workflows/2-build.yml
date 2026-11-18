@@ -28,6 +28,7 @@ jobs:
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           docker build -t ghcr.io/$REPO_LOWER:latest .
           docker push ghcr.io/$REPO_LOWER:latest
+
       - name: Testar conexao SSH
         run: |
           echo "Testando porta 22..."
@@ -42,7 +43,7 @@ jobs:
           script: |
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            cd ~/apps/Projeto_Integrador_Cloud_DevOps
+            cd /apps/Projeto_Integrador_Cloud_DevOps
 
             git pull origin main
             docker compose pull

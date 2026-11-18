@@ -1,7 +1,40 @@
+version: '3.8'
+
 services:
   web:
     image: ghcr.io/guilhermexisto/projeto_integrador_cloud_devops:latest
-    ports:
-      - "127.0.0.1:8080:80"
+    container_name: minha-pagina-web
     restart: unless-stopped
-  
+    ports:
+      - "80:80"
+    networks:
+      - rede-monitoramento
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - kuma-data:/app/data
+    networks:
+      - rede-monitoramento
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - rede-monitoramento
+
+volumes:
+  kuma-data:
+
+networks:
+  rede-monitoramento:
+    driver: bridge
