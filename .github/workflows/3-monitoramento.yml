@@ -1,4 +1,4 @@
-# 3. CD & Monitoramento: Faz deploy em produção, verifica saúde (HTTPS) e monitora periodicamente
+# 3. CD & Monitoramento: Faz deploy em produção, verifica saúde (HTTPS pelo IP público) e monitora periodicamente
 name: 3 - Deploy e Monitoramento
 
 on:
@@ -33,10 +33,11 @@ jobs:
             docker compose up -d
             docker image prune -f
 
-      - name: Verificar produção (HTTPS)
+      - name: Verificar produção (HTTPS pelo IP)
+        # -k: aceita o certificado autoassinado (não há domínio)
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS https://${{ secrets.DOMAIN }}/health | grep -q "${{ github.sha }}"; then
+            if curl -fsSk https://${{ secrets.SSH_HOST }}/health | grep -q "${{ github.sha }}"; then
               echo "✅ Nova versão no ar"; exit 0
             fi
             sleep 3
@@ -50,5 +51,5 @@ jobs:
     steps:
       - name: Verificar disponibilidade em produção
         run: |
-          curl -fsS https://${{ secrets.DOMAIN }}/health || (echo "❌ Aplicação fora do ar!"; exit 1)
+          curl -fsSk https://${{ secrets.SSH_HOST }}/health || (echo "❌ Aplicação fora do ar!"; exit 1)
           echo "✅ Aplicação online e saudável"
