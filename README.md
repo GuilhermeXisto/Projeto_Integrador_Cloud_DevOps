@@ -4,8 +4,8 @@ Aplicação web simples que exibe a disciplina e os integrantes do grupo, levada
 
 | Item | Valor |
 |---|---|
-| **Aplicação** | https://IP_PUBLICO |
-| **Status / Monitoramento** | https://IP_PUBLICO:3001 |
+| **Aplicação** | https://3.142.172.36 |
+| **Status / Monitoramento** | https://3.142.172.36:3001 |
 | **Repositório** | https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps |
 | **Disciplina** | Cloud Computing e DevOps |
 | **Integrantes** | Lael Cândido Batista Veiga · _(adicionar os demais)_ |
