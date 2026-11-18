@@ -1,5 +1,9 @@
-# Arquitetura: Usuário → DNS → Traefik (80/443, HTTPS) → container app (8000)
-#                                              └→ container uptime-kuma (3001)
+# Arquitetura (acesso direto pelo IP público, sem domínio, com HTTPS):
+#   Usuário → https://IP_PUBLICO      → Traefik (:443)  → container app (8000)
+#   Usuário → https://IP_PUBLICO:3001 → Traefik (:3001) → container uptime-kuma (3001)
+#   http://IP_PUBLICO (:80) redireciona para HTTPS.
+# Sem domínio o Let's Encrypt não emite certificado: o Traefik usa um certificado
+# autoassinado gerado por ele mesmo (o navegador mostra um aviso na primeira vez).
 # Apenas o Traefik publica portas no host. App e Kuma ficam só na rede interna.
 
 name: projeto-cloud-devops
@@ -13,23 +17,20 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false     # só expõe quem tiver label
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.address=:443          # aplicação (HTTPS)
+      - --entrypoints.kuma.address=:3001              # painel do Uptime Kuma (HTTPS)
       # Redireciona todo HTTP para HTTPS
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      # Certificados automáticos do Let's Encrypt (desafio HTTP-01 na porta 80)
-      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
       - --log.level=INFO
       - --accesslog=true
       - --ping=true                                   # usado no healthcheck
     ports:
       - "80:80"
       - "443:443"
+      - "3001:3001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt:/letsencrypt
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 30s
@@ -46,9 +47,9 @@ services:
       context: .
     labels:
       - traefik.enable=true
-      - traefik.http.routers.app.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.app.rule=PathPrefix(`/`)
       - traefik.http.routers.app.entrypoints=websecure
-      - traefik.http.routers.app.tls.certresolver=le
+      - traefik.http.routers.app.tls=true
       - traefik.http.services.app.loadbalancer.server.port=8000
     networks: [web]
 
@@ -62,14 +63,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - traefik.enable=true
-      - traefik.http.routers.kuma.rule=Host(`status.${DOMAIN}`)
-      - traefik.http.routers.kuma.entrypoints=websecure
-      - traefik.http.routers.kuma.tls.certresolver=le
+      - traefik.http.routers.kuma.rule=PathPrefix(`/`)
+      - traefik.http.routers.kuma.entrypoints=kuma
+      - traefik.http.routers.kuma.tls=true
       - traefik.http.services.kuma.loadbalancer.server.port=3001
     networks: [web]
 
 volumes:
-  letsencrypt:
   kuma-data:
 
 networks:

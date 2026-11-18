@@ -3,7 +3,7 @@
 # Uso (no servidor):  sudo bash setup-server.sh <url-do-repositorio>
 set -euo pipefail
 
-REPO_URL="${1:-https://github.com/flacolael/projeto-cloud-devops.git}"
+REPO_URL="${1:-https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps.git}"
 APP_DIR="/opt/projeto-cloud-devops"
 DEPLOY_USER="${SUDO_USER:-ubuntu}"
 
@@ -18,12 +18,13 @@ fi
 usermod -aG docker "$DEPLOY_USER"
 systemctl enable --now docker
 
-echo "==> Firewall: só SSH, HTTP e HTTPS"
+echo "==> Firewall: só SSH, HTTP, HTTPS e 3001 (Uptime Kuma)"
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
+ufw allow 3001/tcp
 ufw --force enable
 
 echo "==> SSH: desativando login por senha e login direto como root"
@@ -40,7 +41,7 @@ chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$APP_DIR"
 if [ ! -f "$APP_DIR/.env" ]; then
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
-  echo "!! Edite $APP_DIR/.env (DOMAIN, ACME_EMAIL, IMAGE) antes de subir os containers."
+  echo "!! Edite $APP_DIR/.env (IMAGE) antes de subir os containers."
 fi
 
 echo
