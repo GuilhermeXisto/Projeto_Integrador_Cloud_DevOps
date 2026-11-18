@@ -49,7 +49,8 @@ Detalhes de cada componente: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 | Versionamento | Git + GitHub |
 | Containers | Docker, Docker Compose |
 | Registry | GitHub Container Registry (ghcr.io) |
-| Nuvem | _(preencher: ex. Oracle Cloud Always Free / AWS EC2)_ — Ubuntu 24.04 |
+| Nuvem | AWS EC2 — Ubuntu 24.04 |
+| Automação da infraestrutura | **Ansible** (prepara o servidor e implanta a stack) |
 | Acesso | IP público da VM (sem domínio) |
 | Reverse proxy + HTTPS | Traefik v3 (certificado autoassinado) |
 | CI/CD | GitHub Actions |
@@ -67,7 +68,14 @@ Detalhes de cada componente: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 ├── Dockerfile                 # receita da imagem
 ├── docker-compose.yml         # traefik + app + uptime-kuma
 ├── .env.example               # modelo de variáveis (o .env real NÃO vai pro Git)
-├── .github/workflows/ci-cd.yml# pipeline CI/CD
+├── .github/workflows/         # pipeline CI/CD (testes → build → deploy/monitoramento)
+├── ansible/                   # N2: automação com Ansible
+│   ├── ansible.cfg            # configuração (inventário padrão, SSH)
+│   ├── inventory.ini          # servidor(es) de destino (IP + usuário + chave)
+│   ├── group_vars/all.yml     # variáveis (repositório, imagem, pacotes, portas)
+│   ├── templates/env.j2       # modelo do .env gerado no servidor
+│   ├── requirements.yml       # coleções do Ansible usadas
+│   └── playbook.yml           # prepara o servidor + implanta + verifica
 ├── scripts/
 │   ├── setup-server.sh        # prepara a VM (Docker, firewall, SSH)
 │   ├── diagnostico.sh         # checa servidor → containers → portas → HTTPS → app
@@ -93,7 +101,49 @@ Detalhes de cada componente: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 | Portas abertas | 22 (SSH), 80 (HTTP → redireciona), 443 (HTTPS — aplicação), 3001 (HTTPS — Uptime Kuma) |
 | Acesso | `ssh -i ~/.ssh/chave ubuntu@IP` — somente chave, senha desativada |
 
-## 6. Processo de instalação (resumo)
+## 6. Processo de instalação
+
+### 6.1 Automático com Ansible (N2 — recomendado)
+
+Prepara um servidor Ubuntu **novo** e implanta a aplicação com um único comando. Roda a partir do seu computador (Linux, macOS ou WSL no Windows); o servidor só precisa ter SSH liberado.
+
+**Pré-requisitos**
+- VM Ubuntu 22.04/24.04 na nuvem com as portas **22, 80, 443 e 3001** liberadas no security group.
+- A chave privada `.pem` da VM no seu computador (`chmod 400 ~/.ssh/sua-chave.pem`).
+- Ansible instalado na sua máquina:
+  ```bash
+  python3 -m pip install --user ansible
+  ```
+
+**Execução**
+```bash
+git clone https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps.git
+cd Projeto_Integrador_Cloud_DevOps/ansible
+nano inventory.ini                                  # IP da VM, usuário e caminho da chave .pem
+ansible-galaxy collection install -r requirements.yml
+ansible webservers -m ping                          # testa a conexão
+ansible-playbook playbook.yml                       # prepara o servidor e implanta
+```
+
+**O que o playbook faz**
+
+| Etapa | Tarefas |
+|---|---|
+| 1. Espera a VM | `wait_for_connection` até o SSH responder |
+| 2. Prepara o servidor | instala pacotes base; adiciona o repositório oficial do Docker; instala Docker Engine + plugin Compose; habilita o serviço; coloca o usuário no grupo `docker`; configura o firewall UFW (22, 80, 443, 3001); desativa login SSH por senha e de root; ativa o fail2ban |
+| 3. Implanta | clona o repositório em `/opt/projeto-cloud-devops`; gera o `.env` a partir de `templates/env.j2`; baixa as imagens (se a imagem do GHCR não estiver acessível, **constrói a imagem no próprio servidor** pelo `Dockerfile`); `docker compose up -d` |
+| 4. Verifica | espera `https://localhost/health` responder 200 e mostra os containers em execução e as URLs de acesso |
+
+O playbook é **idempotente**: pode ser executado de novo sem quebrar nada (só altera o que estiver diferente).
+
+**Acesso após a execução**
+- Aplicação: `http://IP_DA_VM` → redireciona para `https://IP_DA_VM` (aceite o aviso do certificado autoassinado)
+- Uptime Kuma: `https://IP_DA_VM:3001`
+- Health check: `https://IP_DA_VM/health`
+
+**Evidências** — ver [docs/EVIDENCIAS.md](docs/EVIDENCIAS.md#n2--ansible).
+
+### 6.2 Manual com script (alternativa da N1)
 
 ```bash
 # Na VM

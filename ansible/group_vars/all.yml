@@ -1,0 +1,40 @@
+# Variáveis da automação (valem para todos os hosts do inventário)
+
+# Usuário que vai operar a aplicação (o mesmo usado pelo deploy do GitHub Actions)
+deploy_user: "{{ ansible_user }}"
+
+# Repositório do projeto e onde ele fica no servidor
+repo_url: https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps.git
+repo_branch: main
+app_dir: /opt/projeto-cloud-devops
+
+# Imagem publicada pela pipeline no GHCR (gravada no .env do servidor)
+app_image: ghcr.io/guilhermexisto/projeto_integrador_cloud_devops
+app_image_tag: latest
+
+# Pacotes base do sistema
+base_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - python3-debian   # usado pelo módulo deb822_repository
+  - git
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+
+# Pacotes do Docker (repositório oficial)
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Portas liberadas no firewall (UFW)
+#   22 SSH | 80 HTTP (redireciona) | 443 HTTPS app | 3001 Uptime Kuma
+firewall_ports:
+  - 22
+  - 80
+  - 443
+  - 3001

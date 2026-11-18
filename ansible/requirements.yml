@@ -1,0 +1,4 @@
+# Coleções do Ansible usadas no playbook
+# Instalar com: ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.general

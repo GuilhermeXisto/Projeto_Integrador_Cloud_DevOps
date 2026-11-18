@@ -1,4 +1,4 @@
-# 1. CI: valida configuração do Docker Compose
+# 1. CI: testes da aplicação + valida o Docker Compose e o Ansible
 name: 1 - CI (Testes)
 
 on:
@@ -30,3 +30,11 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
+
+      - name: Validar Ansible (sintaxe + ansible-lint)
+        working-directory: ansible
+        run: |
+          pip install ansible ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+          ansible-playbook playbook.yml --syntax-check
+          ansible-lint
