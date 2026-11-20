@@ -6,9 +6,10 @@ Aplicação web simples que exibe a disciplina e os integrantes do grupo, levada
 |---|---|
 | **Aplicação** | https://3.142.172.36 |
 | **Status / Monitoramento** | https://3.142.172.36:3001 |
+| **Health check** | https://3.142.172.36/health |
 | **Repositório** | https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps |
 | **Disciplina** | Cloud Computing e DevOps |
-| **Integrantes** | Lael Cândido Batista Veiga · _(adicionar os demais)_ |
+| **Integrantes** | Guilherme Henrique Xisto da Silva · Lael Cândido Batista Veiga · Vinicius de Oliveira Mateus · Arthur Leite · João Vitor Davy · João Pedro Moraes Silva |
 
 ```
 Código → Git → Docker → Cloud → IP público → HTTPS → CI/CD → Produção → Monitoramento → Diagnóstico
@@ -79,27 +80,29 @@ Detalhes de cada componente: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 ├── scripts/
 │   ├── setup-server.sh        # prepara a VM (Docker, firewall, SSH)
 │   ├── diagnostico.sh         # checa servidor → containers → portas → HTTPS → app
-│   ├── backup.sh              # backup de .env, certificados e dados do Kuma
-│   └── duckdns-update.sh      # opcional: só se um dia usar domínio DuckDNS
+│   └── backup.sh              # backup do .env e dos dados do Kuma
 └── docs/
     ├── ARQUITETURA.md         # arquitetura e fluxo de cada requisição
-    ├── DEPLOY.md              # instalação do zero: nuvem, DNS, secrets, monitoramento
+    ├── DEPLOY.md              # instalação do zero: AWS, Ansible, secrets, monitoramento
     ├── RECUPERACAO.md         # runbook de falhas (desafio surpresa)
     ├── DEFESA-N2.md           # roteiro da apresentação + respostas às perguntas técnicas
-    └── EVIDENCIAS.md          # checklist de evidências para a entrega
+    ├── EVIDENCIAS.md          # evidências da entrega (N1 e N2)
+    └── evidencias/            # prints das evidências
 ```
 
 ## 5. Ambiente Cloud
 
 | Item | Valor |
 |---|---|
-| Provedor | _preencher_ |
-| Região | _preencher_ |
-| Sistema operacional | Ubuntu Server 24.04 LTS |
-| Recursos | _ex.: 1 vCPU, 1 GB RAM, 30 GB disco_ |
-| IP público | _preencher_ |
+| Provedor | AWS (Amazon EC2) |
+| Região | us-east-2 (Ohio) |
+| Instância | `i-094900e790207c84f` · par de chaves `keys-lab-castelo` |
+| Sistema operacional | Ubuntu Server (usuário `ubuntu`) |
+| Recursos | _preencher com o tipo da instância (ex.: t2.micro — 1 vCPU, 1 GB RAM)_ |
+| IP público | **3.142.172.36** |
+| Security Group | `launch-wizard-1` — entrada 22, 80, 443, 3001 |
 | Portas abertas | 22 (SSH), 80 (HTTP → redireciona), 443 (HTTPS — aplicação), 3001 (HTTPS — Uptime Kuma) |
-| Acesso | `ssh -i ~/.ssh/chave ubuntu@IP` — somente chave, senha desativada |
+| Acesso | `ssh -i keys-lab-castelo.pem ubuntu@3.142.172.36` — somente chave, senha desativada |
 
 ## 6. Processo de instalação
 
@@ -109,17 +112,22 @@ Prepara um servidor Ubuntu **novo** e implanta a aplicação com um único coman
 
 **Pré-requisitos**
 - VM Ubuntu 22.04/24.04 na nuvem com as portas **22, 80, 443 e 3001** liberadas no security group.
-- A chave privada `.pem` da VM no seu computador (`chmod 400 ~/.ssh/sua-chave.pem`).
-- Ansible instalado na sua máquina:
+- A chave privada da VM em `~/.ssh/keys-lab-castelo.pem` (é o caminho usado no `inventory.ini`) com `chmod 400`.
+- Ansible instalado na máquina de controle. O Ansible não roda direto no Windows: use o **AWS CloudShell**, o WSL ou Linux/macOS.
   ```bash
-  python3 -m pip install --user ansible
+  pip3 install ansible      # no CloudShell (fora de um virtualenv: pip3 install --user ansible)
   ```
+
+**Preparando a chave no AWS CloudShell** (envie o `.pem` em *Actions → Upload file*):
+```bash
+mkdir -p ~/.ssh && mv ~/keys-lab-castelo.pem ~/.ssh/ && chmod 400 ~/.ssh/keys-lab-castelo.pem
+```
 
 **Execução**
 ```bash
 git clone https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps.git
 cd Projeto_Integrador_Cloud_DevOps/ansible
-nano inventory.ini                                  # IP da VM, usuário e caminho da chave .pem
+cat inventory.ini                                   # 3.142.172.36, usuário ubuntu, chave ~/.ssh/keys-lab-castelo.pem
 ansible-galaxy collection install -r requirements.yml
 ansible webservers -m ping                          # testa a conexão
 ansible-playbook playbook.yml                       # prepara o servidor e implanta
@@ -137,9 +145,11 @@ ansible-playbook playbook.yml                       # prepara o servidor e impla
 O playbook é **idempotente**: pode ser executado de novo sem quebrar nada (só altera o que estiver diferente).
 
 **Acesso após a execução**
-- Aplicação: `http://IP_DA_VM` → redireciona para `https://IP_DA_VM` (aceite o aviso do certificado autoassinado)
-- Uptime Kuma: `https://IP_DA_VM:3001`
-- Health check: `https://IP_DA_VM/health`
+- Aplicação: http://3.142.172.36 → redireciona para https://3.142.172.36 (aceite o aviso do certificado autoassinado)
+- Uptime Kuma: https://3.142.172.36:3001
+- Health check: https://3.142.172.36/health
+
+Em um servidor novo, troque `3.142.172.36` pelo IP que estiver no `inventory.ini`.
 
 **Evidências** — ver [docs/EVIDENCIAS.md](docs/EVIDENCIAS.md#n2--ansible).
 
@@ -174,11 +184,11 @@ docker build -t app-local . && docker run -p 8000:8000 app-local   # http://loca
 
 ## 8. Acesso pelo IP público (sem domínio)
 
-O projeto não usa domínio nem DNS: o acesso é feito direto pelo IP público da VM.
+O projeto não usa domínio nem DNS: o acesso é feito direto pelo IP público da VM, **3.142.172.36**.
 
-- Aplicação: `https://IP_PUBLICO` → porta 443 → Traefik → container app (8000)
-- Uptime Kuma: `https://IP_PUBLICO:3001` → porta 3001 → Traefik → container uptime-kuma (3001)
-- `http://IP_PUBLICO` (porta 80) redireciona para HTTPS.
+- Aplicação: `https://3.142.172.36` → porta 443 → Traefik → container app (8000)
+- Uptime Kuma: `https://3.142.172.36:3001` → porta 3001 → Traefik → container uptime-kuma (3001)
+- `http://3.142.172.36` (porta 80) redireciona para HTTPS.
 
 No provedor de nuvem, libere as portas **22, 80, 443 e 3001** no security group / firewall da VM.
 
@@ -202,7 +212,7 @@ Pull requests rodam só testes + build (não fazem deploy).
 
 ## 11. Monitoramento
 
-- **Uptime Kuma** (`https://IP_PUBLICO:3001`): monitor HTTP da aplicação (`/health`), monitor de palavra-chave e monitor Docker de cada container. Alertas por Telegram/Discord/e-mail.
+- **Uptime Kuma** (`https://3.142.172.36:3001`): monitor HTTP da aplicação (`/health`), monitor de palavra-chave e monitor Docker de cada container. Alertas por Telegram/Discord/e-mail.
 - **Docker HEALTHCHECK**: `docker ps` mostra `(healthy)` / `(unhealthy)`.
 - **`scripts/diagnostico.sh`**: verifica servidor, disco, memória, Docker, containers, portas, IP público, certificado e aplicação em um comando.
 
