@@ -1,146 +1,130 @@
 # Deploy do zero
 
-Ordem: **GitHub → VM → DNS → .env → subir containers → secrets → primeiro push → monitoramento**.
+Ordem: **VM na AWS → Ansible (prepara e implanta) → secrets do GitHub → pipeline → monitoramento**.
 
-## 1. Repositório no GitHub
+O acesso é feito direto pelo **IP público** da VM (sem domínio). Ambiente atual:
 
-```bash
-git init
-git add .
-git commit -m "feat: estrutura inicial do projeto"
-git branch -M main
-git remote add origin https://github.com/flacolael/projeto-cloud-devops.git
-git push -u origin main
-```
-
-Deixe o repositório **público** (exigência do professor).
-Edite `app/app.py` → lista `INTEGRANTES` com o nome completo de todos.
-
-## 2. Criar a VM na nuvem
-
-Qualquer provedor serve. Exemplo de configuração mínima:
-
-| | |
+| Item | Valor |
 |---|---|
-| Imagem | Ubuntu Server 24.04 LTS |
-| Tamanho | 1 vCPU / 1 GB RAM já funciona (Oracle Always Free, AWS t3.micro/t2.micro, Azure B1s, GCP e2-micro) |
+| Provedor | AWS EC2 — região us-east-2 (Ohio) |
+| Instância | `i-094900e790207c84f` |
+| IP público | **3.142.172.36** |
+| Usuário SSH | `ubuntu` |
+| Par de chaves | `keys-lab-castelo` (arquivo `keys-lab-castelo.pem`, nunca vai para o Git) |
+| Security Group | `launch-wizard-1` |
+
+## 1. Criar a VM na AWS
+
+No console da AWS: **EC2 → Launch instance**.
+
+| Campo | Valor |
+|---|---|
+| Imagem (AMI) | Ubuntu Server 24.04 LTS (ou 22.04) |
+| Tipo | t2.micro / t3.micro (1 vCPU, 1 GB RAM) já funciona |
+| Par de chaves | `keys-lab-castelo` (ou crie um e baixe o `.pem`) |
 | Disco | 20–30 GB |
-| Chave SSH | gere com `ssh-keygen -t ed25519 -f ~/.ssh/projeto` e cadastre a **pública** (`projeto.pub`) |
-| Regras de rede | Entrada TCP 22, 80, 443 (Oracle: Security List da VCN; AWS: Security Group; Azure: NSG; GCP: firewall rules) |
+| Security Group — entrada | TCP **22** (SSH), **80** (HTTP), **443** (HTTPS), **3001** (Uptime Kuma), origem `0.0.0.0/0` |
 
-> **Oracle Cloud**: além da Security List, a imagem Ubuntu da Oracle vem com regras de iptables próprias. O `setup-server.sh` usa UFW; se 80/443 não abrirem, rode `sudo iptables -I INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT && sudo netfilter-persistent save`.
+> A porta 22 precisa estar aberta para `0.0.0.0/0` (e não "My IP"): o GitHub Actions faz o deploy por SSH a partir de IPs que mudam a cada execução. O acesso continua protegido porque o servidor só aceita login com chave.
 >
-> Se a RAM for 1 GB, crie swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab`
+> Anote o **IP público** da instância. Se a instância for parada e iniciada, o IP pode mudar; para fixá-lo, associe um **Elastic IP**.
+>
+> Com 1 GB de RAM, é recomendável criar swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab`
 
-Anote o **IP público**.
+## 2. Preparar o servidor e implantar com Ansible (N2)
 
-## 3. Preparar o servidor
-
-```bash
-ssh -i ~/.ssh/projeto ubuntu@IP_PUBLICO
-
-curl -fsSL https://raw.githubusercontent.com/flacolael/projeto-cloud-devops/main/scripts/setup-server.sh -o setup.sh
-sudo bash setup.sh https://github.com/flacolael/projeto-cloud-devops.git
-exit   # sair e entrar de novo para o grupo docker valer
-```
-
-> ⚠️ O script desativa login por senha no SSH. Confirme que você está entrando **com chave** antes de rodar.
-
-## 4. DNS (DuckDNS)
-
-1. Entre em https://www.duckdns.org com sua conta do GitHub.
-2. Crie o subdomínio, ex.: `projeto-lael` → `projeto-lael.duckdns.org`.
-3. Em **current ip**, coloque o IP público da VM e clique em **update ip**.
-4. Copie o **token** (vai no `.env` se for usar o `duckdns-update.sh`).
-5. Teste do seu computador: `nslookup projeto-lael.duckdns.org` → deve retornar o IP da VM.
-
-`status.projeto-lael.duckdns.org` já resolve para o mesmo IP, sem configuração extra.
-
-> **Domínio próprio** (Registro.br, Cloudflare etc.): crie registro **A** `@ → IP` e **A** `status → IP`. Se usar Cloudflare com proxy (nuvem laranja), use modo SSL **Full (strict)**.
-
-## 5. Configurar o `.env` e subir
+O Ansible roda na **máquina de controle** e configura a VM por SSH. Ele não roda direto no Windows: use o **AWS CloudShell** (ícone `>_` no console), o WSL ou Linux/macOS.
 
 ```bash
-ssh -i ~/.ssh/projeto ubuntu@IP_PUBLICO
-cd /opt/projeto-cloud-devops
-nano .env
+# 1. Chave SSH (no CloudShell: Actions → Upload file → keys-lab-castelo.pem)
+mkdir -p ~/.ssh && mv ~/keys-lab-castelo.pem ~/.ssh/ && chmod 400 ~/.ssh/keys-lab-castelo.pem
+
+# 2. Ansible
+pip3 install ansible
+
+# 3. Projeto
+git clone https://github.com/GuilhermeXisto/Projeto_Integrador_Cloud_DevOps.git
+cd Projeto_Integrador_Cloud_DevOps/ansible
+ansible-galaxy collection install -r requirements.yml
+
+# 4. Conferir o inventário (IP, usuário e caminho da chave)
+cat inventory.ini
+
+# 5. Testar a conexão e rodar
+ansible webservers -m ping
+ansible-playbook playbook.yml
 ```
+
+Para uma **VM nova**, basta trocar o IP na linha do `inventory.ini`:
 
 ```ini
-DOMAIN=projeto-lael.duckdns.org
-ACME_EMAIL=seu-email@exemplo.com
-IMAGE=ghcr.io/flacolael/projeto-cloud-devops
-IMAGE_TAG=latest
+[webservers]
+NOVO_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/keys-lab-castelo.pem
 ```
 
-**Antes do primeiro push da pipeline** ainda não existe imagem no GHCR. Para subir já, faça o build no próprio servidor:
+O playbook instala Docker + Compose, configura firewall e SSH, clona o repositório em `/opt/projeto-cloud-devops`, gera o `.env`, sobe Traefik + app + Uptime Kuma e verifica `https://localhost/health`. Detalhes no [README](../README.md#61-automático-com-ansible-n2--recomendado).
 
-```bash
-docker compose build app
-docker compose up -d
-docker compose ps
-docker logs -f traefik     # acompanhe a emissão do certificado
-```
+**Alternativa manual (sem Ansible):** `scripts/setup-server.sh` faz a preparação do servidor; depois `cd /opt/projeto-cloud-devops && docker compose up -d`.
 
-Acesse `https://projeto-lael.duckdns.org` — deve abrir com cadeado. 🎉
+## 3. Conferir no navegador
 
-## 6. Secrets da pipeline
+| Serviço | Endereço |
+|---|---|
+| Aplicação | https://3.142.172.36 (`http://3.142.172.36` redireciona para HTTPS) |
+| Health check | https://3.142.172.36/health |
+| Uptime Kuma | https://3.142.172.36:3001 |
 
-Gere uma chave **só para o deploy** (no seu computador):
+O HTTPS usa um certificado **autoassinado** gerado pelo Traefik (sem domínio, o Let's Encrypt não emite certificado). O navegador mostra "Não seguro": clique em **Avançado → Continuar**.
 
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/deploy_github -N "" -C "github-actions"
-ssh-copy-id -i ~/.ssh/deploy_github.pub -o "IdentityFile ~/.ssh/projeto" ubuntu@IP_PUBLICO
-```
+## 4. Secrets da pipeline
 
-No GitHub: **Settings → Secrets and variables → Actions → New repository secret**:
+No GitHub: **Settings → Secrets and variables → Actions → New repository secret** (aba *Secrets*, não *Variables*):
 
 | Secret | Valor |
 |---|---|
-| `SSH_HOST` | IP público da VM |
-| `SSH_USER` | `ubuntu` (ou seu usuário) |
-| `SSH_PRIVATE_KEY` | conteúdo inteiro de `~/.ssh/deploy_github` (a **privada**) |
-| `DOMAIN` | `projeto-lael.duckdns.org` |
+| `SSH_HOST` | `3.142.172.36` |
+| `SSH_USER` | `ubuntu` |
+| `SSH_PRIVATE_KEY` | conteúdo inteiro do `keys-lab-castelo.pem`, de `-----BEGIN` até `-----END ... KEY-----` |
 
 Crie também o environment **producao** em **Settings → Environments** (o job de deploy usa ele).
 
-## 7. Primeiro deploy pela pipeline
+## 5. Deploy pela pipeline
 
-```bash
-git commit --allow-empty -m "ci: primeiro deploy automatizado"
-git push
-```
+Todo `git push` na `main` dispara:
 
-Acompanhe na aba **Actions**. Depois do primeiro push:
+1. **1 - CI (Testes)**: pytest, validação do `docker-compose.yml` e do Ansible (syntax-check + ansible-lint).
+2. **2 - Build e Push**: constrói a imagem, testa `/health` num container no runner e publica no GHCR (`ghcr.io/guilhermexisto/projeto_integrador_cloud_devops`, tags `latest` e SHA).
+3. **3 - Deploy e Monitoramento**: SSH na VM → `git pull` → grava a tag no `.env` → `docker compose pull` e `up -d` → confere em `https://3.142.172.36/health` que o commit novo está no ar.
 
-1. Vá no seu perfil → **Packages** → `projeto-cloud-devops` → **Package settings** → **Change visibility → Public**.
-   (Assim o servidor faz `docker compose pull` sem precisar de login. Alternativa: `docker login ghcr.io` no servidor com um token `read:packages`.)
-2. Rode novamente o workflow (**Actions → CI/CD → Re-run all jobs**).
+Se o deploy falhar com `unauthorized`/`denied` ao baixar a imagem, deixe o pacote público: perfil → **Packages** → `projeto_integrador_cloud_devops` → **Package settings** → **Change visibility → Public**.
 
-A partir daqui, **todo push na `main` vai para produção**. O rodapé da página mostra o número da versão e o commit.
+O rodapé da página mostra a versão e o commit em execução.
 
-## 8. Monitoramento (Uptime Kuma)
+## 6. Monitoramento (Uptime Kuma)
 
-1. Acesse `https://status.projeto-lael.duckdns.org` e **crie o usuário admin** imediatamente (senha forte — antes disso qualquer um pode criar).
-2. Adicione monitores:
+1. Acesse https://3.142.172.36:3001 e **crie o usuário admin** imediatamente (antes disso, qualquer um pode criar).
+2. Adicione os monitores:
 
 | Tipo | Configuração | Detecta |
 |---|---|---|
-| HTTP(s) | `https://projeto-lael.duckdns.org/health`, intervalo 60s | App fora do ar, erro 5xx, problema de proxy |
-| HTTP(s) – Keyword | URL `/`, palavra `Cloud Computing` | Página quebrada mesmo com 200 |
-| HTTP(s) | marque **Certificate Expiry Notification** | Certificado expirando/inválido |
-| Docker Container | host Docker: socket `/var/run/docker.sock`; containers `app` e `traefik` | Container parado/reiniciando |
-| DNS | `projeto-lael.duckdns.org`, tipo A, servidor 1.1.1.1 | DNS apontando errado |
+| HTTP(s) – Palavra-chave | `https://3.142.172.36/health`, palavra `ok`, **Avançado → Ignorar erro TLS/SSL** marcado | App fora do ar, erro 5xx, problema no proxy |
+| HTTP(s) | `http://app:8000/health` (rede interna do Docker, sem passar pelo Traefik) | App travado mesmo com o proxy no ar |
+| Docker Container | Docker Host via socket `/var/run/docker.sock`; containers `app`, `traefik`, `uptime-kuma` | Container parado ou reiniciando |
 
-3. **Settings → Notifications**: configure Telegram, Discord ou e-mail e associe aos monitores.
-4. (Opcional) Crie uma **Status Page** pública.
+> Sem a opção **Ignorar erro TLS/SSL**, o monitor fica vermelho com o erro `self-signed certificate`.
 
-## 9. Backups
+3. **Configurações → Notificações**: configure Telegram, Discord ou e-mail e associe aos monitores.
+
+## 7. Backups
 
 ```bash
-bash scripts/backup.sh
+cd /opt/projeto-cloud-devops && bash scripts/backup.sh
 # cron diário às 3h:
 (crontab -l 2>/dev/null; echo "0 3 * * * cd /opt/projeto-cloud-devops && bash scripts/backup.sh") | crontab -
 ```
 
-Copie periodicamente os backups para fora da VM.
+O backup guarda o `.env` e os dados do Uptime Kuma. Copie periodicamente para fora da VM:
+
+```bash
+scp -i keys-lab-castelo.pem ubuntu@3.142.172.36:~/backups/backup-*.tar.gz .
+```

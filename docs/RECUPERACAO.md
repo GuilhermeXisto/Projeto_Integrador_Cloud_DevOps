@@ -5,7 +5,7 @@
 Seguir o caminho da requisição **de fora para dentro** e parar na primeira camada que falhar:
 
 ```
-DNS → rede/firewall → servidor → Docker → Traefik → container app → aplicação
+IP/rede (Security Group + UFW) → servidor → Docker → Traefik → container app → aplicação
 ```
 
 Primeiro comando sempre:
@@ -23,8 +23,8 @@ docker compose ps                        # estado e health de cada container
 docker logs --tail 100 app               # logs da aplicação
 docker logs --tail 100 traefik           # logs do proxy / certificados
 docker inspect app --format '{{.State.ExitCode}} {{.RestartCount}} {{.State.OOMKilled}}'
-curl -I https://DOMINIO                  # testa de fora
-curl -s http://localhost -H "Host: DOMINIO" -k   # testa direto no servidor
+curl -kI https://3.142.172.36            # testa de fora (-k: certificado autoassinado)
+curl -k https://localhost/health         # testa direto no servidor
 df -h ; free -h ; top                    # recursos
 sudo ss -tlnp                            # quem está escutando em cada porta
 sudo ufw status                          # firewall
@@ -55,25 +55,28 @@ sudo ufw status                          # firewall
   ```
   E corrigir no código com `git revert <commit> && git push`.
 
-### 4. Problema de DNS
-- **Sintoma**: navegador diz "não foi possível encontrar o servidor"; o IP direto funciona.
-- **Investigar**: `nslookup DOMINIO` / `dig +short DOMINIO` → IP diferente do da VM ou nenhum.
-- **Corrigir**: atualizar o IP no DuckDNS (ou `bash scripts/duckdns-update.sh`). Explicar o **TTL/cache**: pode levar alguns minutos; testar com `dig @1.1.1.1 DOMINIO`.
+### 4. IP público mudou
+- **Sintoma**: https://3.142.172.36 não responde (timeout), o deploy falha no SSH, mas a instância aparece *running* no console da AWS.
+- **Investigar**: no console **EC2 → Instances**, conferir o *Public IPv4 address*. Ao parar e iniciar uma instância sem **Elastic IP**, a AWS atribui um IP novo. Pelo CloudShell: `aws ec2 describe-instances --query "Reservations[].Instances[].PublicIpAddress"`.
+- **Corrigir**: atualizar o novo IP no secret `SSH_HOST`, no `ansible/inventory.ini` e na documentação. Para não acontecer de novo: associar um **Elastic IP** à instância.
+- **Explicar**: como não usamos domínio, não há DNS para atualizar; o IP é o endereço da aplicação.
 
 ### 5. Problema de HTTPS
-- **Sintoma**: aviso de certificado inválido / "TRAEFIK DEFAULT CERT" / `ERR_CERT_*`.
+- **Comportamento esperado**: o navegador mostra "Não seguro" / `NET::ERR_CERT_AUTHORITY_INVALID`. Isso é **normal**: sem domínio, o Traefik usa o próprio certificado **autoassinado** ("TRAEFIK DEFAULT CERT"). A conexão é criptografada, só não é reconhecida por uma autoridade.
+- **Sintoma de problema real**: a porta 443 não responde, `ERR_CONNECTION_REFUSED`, ou o Uptime Kuma acusa `self-signed certificate`.
 - **Investigar**:
   ```bash
-  echo | openssl s_client -connect DOMINIO:443 -servername DOMINIO 2>/dev/null | openssl x509 -noout -issuer -dates
-  docker logs traefik 2>&1 | grep -i -E "acme|certificate|error"
+  echo | openssl s_client -connect localhost:443 2>/dev/null | openssl x509 -noout -subject -dates
+  docker logs traefik 2>&1 | grep -i -E "tls|certificate|error"
+  sudo ss -tlnp | grep ':443'
   ```
-  Causas comuns: porta 80 bloqueada (Let's Encrypt não valida), DNS errado, `ACME_EMAIL`/`DOMAIN` errados no `.env`, limite de emissões do Let's Encrypt.
-- **Corrigir**: liberar a 80, corrigir DNS/.env, `docker compose up -d --force-recreate traefik`. Último recurso: apagar o volume `letsencrypt` para forçar nova emissão (cuidado com o rate limit).
+- **Corrigir**: Traefik parado → `docker compose up -d traefik`. Porta fechada → ver o cenário 6. Kuma acusando `self-signed certificate` → no monitor, marcar **Avançado → Ignorar erro TLS/SSL**.
+- **Evolução**: com um domínio apontando para o IP, dá para usar Let's Encrypt e ter certificado válido.
 
 ### 6. Porta bloqueada
 - **Sintoma**: timeout ao acessar; no servidor `curl localhost` funciona.
-- **Investigar**: `sudo ufw status` (regra removida?) e as regras do provedor (Security List / Security Group). `sudo ss -tlnp | grep -E ':80|:443'` para ver se o Traefik está escutando.
-- **Corrigir**: `sudo ufw allow 443/tcp` (ou 80) e/ou reabrir a regra no painel do provedor.
+- **Investigar**: `sudo ufw status` (regra removida?) e o **Security Group** `launch-wizard-1` no console da AWS. `sudo ss -tlnp | grep -E ':80|:443|:3001'` para ver se o Traefik está escutando.
+- **Corrigir**: `sudo ufw allow 443/tcp` (ou 80/3001) e/ou reabrir a regra no Security Group. Rodar o playbook do Ansible de novo também recria as regras do UFW.
 
 ### 7. Problema no reverse proxy
 - **Sintoma**: `404 page not found`, `502`, ou Traefik parado.
@@ -96,19 +99,18 @@ sudo ufw status                          # firewall
 - **Investigar**: qual job falhou?
   - **Testes** → bug no código; ver o log do pytest.
   - **Build** → erro no Dockerfile/dependência.
-  - **Deploy** → SSH (secret errado, IP mudou, porta 22 fechada), `git pull` com conflito, imagem não encontrada (pacote GHCR privado), disco cheio.
+  - **Deploy** → SSH (secret `SSH_PRIVATE_KEY` vazio ou errado, IP mudou, porta 22 fechada), `git pull` com conflito ou histórico divergente (`fatal: Not possible to fast-forward` → na VM: `git fetch origin && git reset --hard origin/main`), `.env` sem permissão (`sudo chown ubuntu:ubuntu .env`), imagem não encontrada (pacote GHCR privado), disco cheio.
   - **Verificação** → container subiu mas `/health` não respondeu com o commit novo.
 - **Corrigir** conforme a causa e reexecutar (**Re-run jobs**). Produção não fica quebrada porque os testes e o smoke test rodam **antes** do deploy.
 
 ### Servidor parou / VM perdida
-1. VM só parada: iniciar pelo painel do provedor. Os containers voltam sozinhos (`restart: unless-stopped` + Docker habilitado no boot).
-2. VM perdida: criar nova VM → `setup-server.sh` → restaurar `.env` (e, se tiver, o backup de `letsencrypt` e `kuma-data`) → atualizar DNS para o novo IP → atualizar o secret `SSH_HOST` → `docker compose up -d`.
+1. VM só parada: iniciar pelo console da AWS. Os containers voltam sozinhos (`restart: unless-stopped` + Docker habilitado no boot). Conferir se o IP mudou (cenário 4).
+2. VM perdida: criar nova EC2 (portas 22/80/443/3001) → trocar o IP no `ansible/inventory.ini` → `ansible-playbook playbook.yml` (prepara o servidor e sobe tudo) → restaurar o backup do `kuma-data`, se tiver → atualizar o secret `SSH_HOST` com o novo IP.
    Restaurar backup:
    ```bash
    docker compose up -d && docker compose stop
    tar xzf backup-XXXX.tar.gz -C /tmp
    docker run --rm -v projeto-cloud-devops_kuma-data:/kuma -v /tmp/kuma:/src alpine cp -a /src/. /kuma/
-   docker run --rm -v projeto-cloud-devops_letsencrypt:/le -v /tmp/letsencrypt:/src alpine cp -a /src/. /le/
    docker compose up -d
    ```
-   Tudo o que define o ambiente está no Git — só os segredos e os dados ficam fora.
+   Tudo o que define o ambiente está no Git (inclusive a automação com Ansible) — só os segredos e os dados ficam fora.
