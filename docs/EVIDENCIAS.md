@@ -31,7 +31,39 @@ Comandos executados a partir do AWS CloudShell (ou WSL/Linux), dentro da pasta `
 | 7 | Acesso pelo navegador | https://3.142.172.36 (disciplina, integrantes, versão/commit no rodapé) | `evidencias/n2-07-navegador-app.png` |
 | 8 | Monitoramento | https://3.142.172.36:3001 com os monitores verdes | `evidencias/n2-08-uptime-kuma.png` |
 
-<!-- Para mostrar um print aqui, use: ![Ansible ping](evidencias/n2-01-ansible-ping.png) -->
+### Prints da N2
+
+**1. Conexão do Ansible com o servidor**
+
+![Ansible ping](evidencias/n2-01-ansible-ping.png)
+
+**2. Execução do playbook**
+
+![Execução do playbook](evidencias/n2-02-playbook.png)
+
+**3. Idempotência (2ª execução)**
+
+![Idempotência](evidencias/n2-03-idempotencia.png)
+
+**4. Docker instalado pelo Ansible**
+
+![Versão do Docker e do Compose](evidencias/n2-04-docker-versao.png)
+
+**5. Stacks em funcionamento**
+
+![docker compose ps](evidencias/n2-05-compose-ps.png)
+
+**6. Aplicação respondendo**
+
+![Health check](evidencias/n2-06-health.png)
+
+**7. Acesso pelo navegador**
+
+![Aplicação no navegador](evidencias/n2-07-navegador-app.png)
+
+**8. Monitoramento**
+
+![Uptime Kuma](evidencias/n2-08-uptime-kuma.png)
 
 **Reprodução em servidor novo:** criar uma EC2 Ubuntu, liberar 22/80/443/3001 no Security Group, trocar o IP em `ansible/inventory.ini` e rodar `ansible-playbook playbook.yml`.
 
