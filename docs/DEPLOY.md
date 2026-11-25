@@ -7,7 +7,7 @@ O acesso é feito direto pelo **IP público** da VM (sem domínio). Ambiente atu
 | Item | Valor |
 |---|---|
 | Provedor | AWS EC2 — região us-east-2 (Ohio) |
-| Instância | `i-094900e790207c84f` |
+| Instância | `i-094900e790207c84f` (`t3.small`) |
 | IP público | **3.142.172.36** |
 | Usuário SSH | `ubuntu` |
 | Par de chaves | `keys-lab-castelo` (arquivo `keys-lab-castelo.pem`, nunca vai para o Git) |
@@ -20,7 +20,7 @@ No console da AWS: **EC2 → Launch instance**.
 | Campo | Valor |
 |---|---|
 | Imagem (AMI) | Ubuntu Server 24.04 LTS (ou 22.04) |
-| Tipo | t2.micro / t3.micro (1 vCPU, 1 GB RAM) já funciona |
+| Tipo | **t3.small** (2 vCPU, 2 GB RAM) — é a usada no projeto; t3.micro também funciona |
 | Par de chaves | `keys-lab-castelo` (ou crie um e baixe o `.pem`) |
 | Disco | 20–30 GB |
 | Security Group — entrada | TCP **22** (SSH), **80** (HTTP), **443** (HTTPS), **3001** (Uptime Kuma), origem `0.0.0.0/0` |

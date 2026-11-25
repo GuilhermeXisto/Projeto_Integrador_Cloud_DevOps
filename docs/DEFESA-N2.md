@@ -2,6 +2,15 @@
 
 Objetivo da N2: mostrar que o grupo **automatizou com Ansible** a preparação de um servidor Linux e a implantação do projeto da N1, e que **entende** o que construiu. Não é leitura de slides: é demonstração prática.
 
+## Divisão da apresentação
+
+| Ordem | Integrante | Parte | Tempo |
+| --- | --- | --- | --- |
+| 1 | Integrante 1 | Abertura, aplicação no ar, arquitetura e HTTPS | ~3 min |
+| 2 | Integrante 2 | Docker e CI/CD (GitHub Actions) | ~4 min |
+| 3 | Integrante 3 | Ansible: arquivos, execução ao vivo e idempotência | ~5 min |
+| 4 | Integrante 4 | Resultado no servidor novo, monitoramento, diagnóstico e encerramento | ~3–4 min |
+
 ## Antes da apresentação
 
 - [ ] Criar uma **EC2 Ubuntu nova** (portas 22, 80, 443 e 3001 no Security Group) para demonstrar a automação do zero.
@@ -9,7 +18,6 @@ Objetivo da N2: mostrar que o grupo **automatizou com Ansible** a preparação d
 - [ ] CloudShell aberto, com a chave em `~/.ssh/keys-lab-castelo.pem` e o Ansible instalado (`pip3 install ansible`).
 - [ ] Um terminal SSH já aberto na VM `3.142.172.36` (produção).
 - [ ] Abas abertas: https://3.142.172.36, https://3.142.172.36:3001, aba **Actions** do GitHub.
-- [ ] Ensaiar a demonstração inteira pelo menos uma vez.
 
 ## Ordem sugerida da demonstração (~15 min)
 
@@ -69,9 +77,6 @@ Tratamento de erro. O playbook tenta baixar a imagem da aplicação do GHCR (`bl
 **Qual a diferença entre o Ansible e o GitHub Actions?**
 O **Ansible** prepara a infraestrutura: transforma um servidor vazio num servidor pronto, com Docker, firewall e a stack no ar. O **GitHub Actions** cuida do ciclo do código: a cada `git push`, testa, constrói a imagem e atualiza a aplicação no servidor que já está preparado.
 
-**Qual a diferença entre o Ansible e o Terraform?**
-O **Terraform** cria a infraestrutura na nuvem (a VM, a rede, o Security Group). O **Ansible** configura o que roda dentro da VM. Juntos, recriam o ambiente inteiro do zero. Neste projeto usamos o Ansible; o Terraform seria a evolução para criar a EC2 automaticamente.
-
 **E se o professor rodar num servidor novo?**
 Basta criar uma EC2 Ubuntu com as portas 22/80/443/3001 abertas, colocar o IP no `inventory.ini` e rodar `ansible-playbook playbook.yml`. O playbook instala tudo e sobe a aplicação.
 
@@ -111,7 +116,7 @@ Se só desligou: ligar no console da AWS — o Docker inicia no boot e os contai
 A própria VM: uma única máquina numa única zona. Também o IP público (muda se a instância for recriada sem Elastic IP), o Traefik (toda requisição passa por ele) e o disco. O monitoramento está na mesma VM, então não avisaria se ela inteira caísse.
 
 **O que fariam para tornar o ambiente mais resiliente?**
-Elastic IP; duas ou mais VMs em zonas diferentes atrás de um load balancer (o Ansible já configura várias VMs iguais — basta listar no inventário); monitoramento externo; backups automáticos fora da VM; Terraform para criar a infraestrutura; domínio + Let's Encrypt para certificado válido.
+Elastic IP; duas ou mais VMs em zonas diferentes atrás de um load balancer (o Ansible já configura várias VMs iguais — basta listar no inventário); monitoramento externo; backups automáticos fora da VM; domínio + Let's Encrypt para certificado válido.
 
 ## Outras perguntas prováveis
 

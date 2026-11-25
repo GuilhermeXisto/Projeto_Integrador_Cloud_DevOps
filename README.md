@@ -98,7 +98,7 @@ Detalhes de cada componente: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 | Região | us-east-2 (Ohio) |
 | Instância | `i-094900e790207c84f` · par de chaves `keys-lab-castelo` |
 | Sistema operacional | Ubuntu Server (usuário `ubuntu`) |
-| Recursos | _preencher com o tipo da instância (ex.: t2.micro — 1 vCPU, 1 GB RAM)_ |
+| Recursos | **t3.small** — 2 vCPU, 2 GB RAM |
 | IP público | **3.142.172.36** |
 | Security Group | `launch-wizard-1` — entrada 22, 80, 443, 3001 |
 | Portas abertas | 22 (SSH), 80 (HTTP → redireciona), 443 (HTTPS — aplicação), 3001 (HTTPS — Uptime Kuma) |

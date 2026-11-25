@@ -78,4 +78,4 @@ CI/CD (N1):
 - Backups automáticos fora da VM (`scripts/backup.sh` + cron + armazenamento de objetos).
 - **Elastic IP** na AWS para o IP não mudar ao recriar a instância.
 - Domínio + Let's Encrypt para ter certificado válido (sem aviso no navegador).
-- Infraestrutura como código (Terraform) criando a EC2 + o Ansible configurando = ambiente recriado em minutos.
+- Com o Ansible, um servidor novo fica igual ao de produção em minutos: basta criar a EC2 e rodar o playbook.
